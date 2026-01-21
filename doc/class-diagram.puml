@@ -1,0 +1,339 @@
+@startuml Duobingo_Class_Diagram
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam class {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+skinparam package {
+    BackgroundColor #F5F5F5
+    BorderColor #CCCCCC
+}
+
+title Diagramme de Classes - Duobingo API
+
+' ==========================================
+' ENUMERATIONS
+' ==========================================
+
+package "Enumerations" #FFFACD {
+    enum Role {
+        STUDENT
+        TEACHER
+        ADMIN
+    }
+    
+    enum Level {
+        L1
+        L2
+        L3
+        M1
+        M2
+    }
+    
+    enum QuestionType {
+        QCM
+        VRAI_FAUX
+        MATCHING
+        IMAGE
+        TEXT
+    }
+    
+    enum SessionStatus {
+        IN_PROGRESS
+        COMPLETED
+        ABANDONED
+    }
+}
+
+' ==========================================
+' UTILISATEURS
+' ==========================================
+
+package "Users" #E6F3FF {
+    class User {
+        +id: UUID <<PK>>
+        +email: String
+        +password: String
+        +name: String
+        +role: Role
+        +createdAt: DateTime
+        --
+        +getProfile(): StudentProfile | TeacherProfile
+    }
+    
+    class StudentProfile {
+        +userId: UUID <<PK, FK>>
+        +level: Level
+    }
+    
+    class TeacherProfile {
+        +userId: UUID <<PK, FK>>
+        +facultyDepartment: String
+    }
+    
+    User "1" -- "0..1" StudentProfile : has >
+    User "1" -- "0..1" TeacherProfile : has >
+    User --> Role
+    StudentProfile --> Level
+}
+
+' ==========================================
+' STRUCTURE PÉDAGOGIQUE
+' ==========================================
+
+package "Classroom Management" #E6FFE6 {
+    class Classroom {
+        +id: UUID <<PK>>
+        +name: String
+        +level: Level
+        +code: String
+        +responsibleProfessorId: UUID <<FK>>
+        +createdAt: DateTime
+        --
+        +generateCode(): String
+        +regenerateCode(): String
+        +isResponsible(userId: UUID): Boolean
+        +isTeacher(userId: UUID): Boolean
+        +isStudent(userId: UUID): Boolean
+    }
+    
+    class ClassroomTeacher {
+        +classroomId: UUID <<PK, FK>>
+        +teacherId: UUID <<PK, FK>>
+        +joinedAt: DateTime
+    }
+    
+    class ClassroomStudent {
+        +classroomId: UUID <<PK, FK>>
+        +studentId: UUID <<PK, FK>>
+        +joinedAt: DateTime
+    }
+    
+    class Module {
+        +id: UUID <<PK>>
+        +classroomId: UUID <<FK>>
+        +name: String
+        +category: String
+        +prerequisiteModuleId: UUID <<FK>>
+        +createdAt: DateTime
+        --
+        +isUnlocked(studentId: UUID): Boolean
+        +isCompleted(studentId: UUID): Boolean
+    }
+    
+    class Quiz {
+        +id: UUID <<PK>>
+        +moduleId: UUID <<FK>>
+        +title: String
+        +prerequisiteQuizId: UUID <<FK>>
+        +minScoreToUnlockNext: Integer
+        +isActive: Boolean
+        +createdById: UUID <<FK>>
+        +createdAt: DateTime
+    }
+    
+    class CompletedModule {
+        +studentId: UUID <<PK, FK>>
+        +moduleId: UUID <<PK, FK>>
+        +completedAt: DateTime
+    }
+    
+    class CompletedQuiz {
+        +studentId: UUID <<PK, FK>>
+        +quizId: UUID <<PK, FK>>
+        +completedAt: DateTime
+    }
+    
+    Classroom --> Level
+    Classroom "1" *-- "*" Module : contains >
+    Classroom "1" -- "*" ClassroomTeacher : has >
+    Classroom "1" -- "*" ClassroomStudent : has >
+    
+    Module "1" *-- "*" Quiz : contains >
+    Module "0..1" <.. Module : prerequisite
+    Quiz "0..1" <.. Quiz : prerequisite
+    
+    User "1" --> "*" Classroom : responsible for >
+    ClassroomTeacher "*" --> "1" User : teacher
+    ClassroomStudent "*" --> "1" User : student
+    
+    Module "1" -- "*" CompletedModule : tracks >
+    User "1" -- "*" CompletedModule : has completed >
+    Quiz "1" -- "*" CompletedQuiz : tracks >
+    User "1" -- "*" CompletedQuiz : has completed >
+}
+
+' ==========================================
+' QUESTIONS (POLYMORPHISME)
+' ==========================================
+
+package "Questions" #FFE6E6 {
+    abstract class Question {
+        +id: UUID <<PK>>
+        +quizId: UUID <<FK>>
+        +type: QuestionType
+        +contentText: String
+        +explanation: String
+        +mediaId: UUID <<FK>>
+        +createdAt: DateTime
+        --
+        {abstract} +checkAnswer(answer: Any): Boolean
+    }
+    
+    class QuestionOption {
+        +id: UUID <<PK>>
+        +questionId: UUID <<FK>>
+        +textChoice: String
+        +isCorrect: Boolean
+        +displayOrder: Integer
+    }
+    
+    class MatchingPair {
+        +id: UUID <<PK>>
+        +questionId: UUID <<FK>>
+        +itemLeft: String
+        +itemRight: String
+    }
+    
+    class ImageZone {
+        +id: UUID <<PK>>
+        +questionId: UUID <<FK>>
+        +labelName: String
+        +x: Float
+        +y: Float
+        +radius: Float
+        --
+        +containsPoint(x: Float, y: Float): Boolean
+    }
+    
+    class TextConfig {
+        +questionId: UUID <<PK, FK>>
+        +acceptedAnswer: String
+        +isCaseSensitive: Boolean
+        +ignoreSpellingErrors: Boolean
+        --
+        +matches(input: String): Boolean
+        +levenshteinDistance(a: String, b: String): Integer
+    }
+    
+    class Media {
+        +id: UUID <<PK>>
+        +url: String
+        +filename: String
+        +mimeType: String
+        +uploadedById: UUID <<FK>>
+        +uploadedAt: DateTime
+    }
+    
+    Quiz "1" *-- "*" Question : contains >
+    Question --> QuestionType
+    Question "1" -- "*" QuestionOption : has (QCM/VRAI_FAUX) >
+    Question "1" -- "*" MatchingPair : has (MATCHING) >
+    Question "1" -- "*" ImageZone : has (IMAGE) >
+    Question "1" -- "0..1" TextConfig : has (TEXT) >
+    Question "*" --> "0..1" Media : uses >
+}
+
+' ==========================================
+' SESSIONS DE JEU (QUIZ)
+' ==========================================
+
+package "Quiz Sessions" #F0E6FF {
+    class QuizSession {
+        +id: UUID <<PK>>
+        +quizId: UUID <<FK>>
+        +studentId: UUID <<FK>>
+        +classroomId: UUID <<FK>>
+        +status: SessionStatus
+        +totalScore: Integer
+        +maxScore: Integer
+        +startedAt: DateTime
+        +completedAt: DateTime
+    }
+    
+    class SessionAnswer {
+        +id: UUID <<PK>>
+        +sessionId: UUID <<FK>>
+        +questionId: UUID <<FK>>
+        +isCorrect: Boolean
+        +answeredAt: DateTime
+    }
+    
+    Quiz "1" -- "*" QuizSession : generates >
+    User "1" -- "*" QuizSession : takes >
+    Classroom "1" -- "*" QuizSession : hosts >
+    QuizSession --> SessionStatus
+    QuizSession "1" *-- "*" SessionAnswer : contains >
+    SessionAnswer "*" --> "1" Question : answers >
+}
+
+' ==========================================
+' SYSTÈME LEITNER
+' ==========================================
+
+package "Leitner System" #FFF0E6 {
+    class LeitnerBox {
+        +classroomId: UUID <<PK, FK>>
+        +studentId: UUID <<PK, FK>>
+        +questionId: UUID <<PK, FK>>
+        +boxLevel: Integer
+        +lastReviewedAt: DateTime
+    }
+    
+    class LeitnerSession {
+        +id: UUID <<PK>>
+        +classroomId: UUID <<FK>>
+        +studentId: UUID <<FK>>
+        +questionCount: Integer
+        +startedAt: DateTime
+        +completedAt: DateTime
+    }
+    
+    class LeitnerSessionAnswer {
+        +id: UUID <<PK>>
+        +sessionId: UUID <<FK>>
+        +questionId: UUID <<FK>>
+        +isCorrect: Boolean
+        +previousBox: Integer
+        +newBox: Integer
+        +answeredAt: DateTime
+    }
+    
+    note right of LeitnerBox
+        boxLevel: 1 à 5
+        --
+        Règles de progression:
+        - Bonne réponse: +1 (max 5)
+        - Mauvaise réponse: retour à 1
+        --
+        Distribution sélection:
+        - Box 1: 50%
+        - Box 2: 25%
+        - Box 3: 15%
+        - Box 4: 7%
+        - Box 5: 3%
+    end note
+    
+    Classroom "1" -- "*" LeitnerBox : has boxes >
+    User "1" -- "*" LeitnerBox : has progress >
+    Question "1" -- "*" LeitnerBox : stored in >
+    
+    Classroom "1" -- "*" LeitnerSession : hosts >
+    User "1" -- "*" LeitnerSession : takes >
+    LeitnerSession "1" *-- "*" LeitnerSessionAnswer : contains >
+    LeitnerSessionAnswer "*" --> "1" Question : reviews >
+}
+
+' ==========================================
+' RELATIONS INTER-PACKAGES
+' ==========================================
+
+' Progression tracking
+QuizSession ..> CompletedQuiz : creates when passed
+CompletedQuiz ..> CompletedModule : triggers module completion
+CompletedQuiz ..> LeitnerBox : unlocks questions
+
+@enduml
