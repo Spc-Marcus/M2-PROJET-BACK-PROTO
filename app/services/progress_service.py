@@ -187,7 +187,7 @@ async def get_student_progress_for_teacher(
     if not await is_classroom_teacher(db, classroom_id, user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="INSUFFICIENT_PERMISSIONS")
     
-    # Create a fake user object for the student
+    # Fetch the student user from database
     result = await db.execute(select(User).where(User.id == student_id))
     student = result.scalar_one_or_none()
     

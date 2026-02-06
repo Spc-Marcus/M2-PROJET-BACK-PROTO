@@ -1,4 +1,5 @@
 """Classroom routes."""
+from datetime import datetime
 from typing import List
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -293,7 +294,6 @@ async def regenerate_code(
     db: AsyncSession = Depends(get_db)
 ):
     """Regenerate classroom access code."""
-    from datetime import datetime
     code = await classroom_service.regenerate_code(db, id, current_user)
     
     return RegenerateCodeResponseDto(

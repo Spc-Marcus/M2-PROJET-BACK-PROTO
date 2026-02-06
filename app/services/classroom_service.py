@@ -227,32 +227,39 @@ async def remove_student(db: AsyncSession, classroom_id: str, student_id: str, u
     if not classroom_student:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not in classroom")
     
-    # Clean up student progress and Leitner data
-    await db.execute(
-        CompletedModule.__table__.delete().where(
-            CompletedModule.student_id == student_id,
-            CompletedModule.module_id.in_(
-                select(Module.id).join(Classroom).where(Classroom.id == classroom_id)
+    # Clean up student progress and Leitner data in a transaction
+    try:
+        await db.execute(
+            CompletedModule.__table__.delete().where(
+                CompletedModule.student_id == student_id,
+                CompletedModule.module_id.in_(
+                    select(Module.id).join(Classroom).where(Classroom.id == classroom_id)
+                )
             )
         )
-    )
-    await db.execute(
-        CompletedQuiz.__table__.delete().where(
-            CompletedQuiz.student_id == student_id,
-            CompletedQuiz.quiz_id.in_(
-                select(Quiz.id).join(Module).join(Classroom).where(Classroom.id == classroom_id)
+        await db.execute(
+            CompletedQuiz.__table__.delete().where(
+                CompletedQuiz.student_id == student_id,
+                CompletedQuiz.quiz_id.in_(
+                    select(Quiz.id).join(Module).join(Classroom).where(Classroom.id == classroom_id)
+                )
             )
         )
-    )
-    await db.execute(
-        LeitnerBox.__table__.delete().where(
-            LeitnerBox.student_id == student_id,
-            LeitnerBox.classroom_id == classroom_id
+        await db.execute(
+            LeitnerBox.__table__.delete().where(
+                LeitnerBox.student_id == student_id,
+                LeitnerBox.classroom_id == classroom_id
+            )
         )
-    )
-    
-    await db.delete(classroom_student)
-    await db.commit()
+        
+        await db.delete(classroom_student)
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to remove student: {str(e)}"
+        )
 
 
 async def join_classroom(db: AsyncSession, classroom_id: str, code: str, user: User) -> Classroom:
