@@ -77,7 +77,7 @@ async def create_user(db: AsyncSession, email: str, password: str, name: str, ro
     if role == Role.TEACHER and department:
         teacher_profile = TeacherProfile(
             user=user,
-            department=department
+            faculty_department=department
         )
         db.add(teacher_profile)
     

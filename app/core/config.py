@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./duobingo.db"
     
     # JWT
+    # WARNING: Change JWT_SECRET_KEY in production! Set via environment variable.
+    # This default value is ONLY for development/testing.
     JWT_SECRET_KEY: str = "test_secret_key_for_testing_only"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
