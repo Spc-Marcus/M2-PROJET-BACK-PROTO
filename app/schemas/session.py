@@ -72,3 +72,21 @@ class SessionResultDto(BaseModel):
     max_score: int = Field(..., alias="maxScore")
     passed: bool = Field(..., alias="passed")
     completed_at: datetime = Field(..., alias="completedAt")
+
+
+class SessionReviewAnswerDto(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    question_id: UUID = Field(..., alias="questionId")
+    is_correct: bool = Field(..., alias="isCorrect")
+    answer_data: Any = Field(..., alias="answerData")
+
+
+class SessionReviewDto(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    session_id: UUID = Field(..., alias="sessionId")
+    total_score: int = Field(..., alias="totalScore")
+    max_score: int = Field(..., alias="maxScore")
+    passed: bool = Field(..., alias="passed")
+    answers: list[SessionReviewAnswerDto] = Field(..., alias="answers")

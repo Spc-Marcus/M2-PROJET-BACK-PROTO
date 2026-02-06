@@ -22,11 +22,13 @@ async def upload_media(
     media = await media_service.upload_media(db, file, current_user)
     
     return MediaDto(
-        mediaId=media.id,
+        id=media.id,
         url=media.url,
         filename=media.filename,
         mimeType=media.mime_type,
-        uploadedAt=media.uploaded_at
+        uploadedBy={"id": current_user.id, "name": current_user.name},
+        uploadedAt=media.uploaded_at,
+        isUsed=False
     )
 
 
@@ -41,11 +43,13 @@ async def get_media_list(
     media_list = await media_service.get_media_list(db, current_user, page, limit)
     
     return [MediaDto(
-        mediaId=m.id,
+        id=m.id,
         url=m.url,
         filename=m.filename,
         mimeType=m.mime_type,
-        uploadedAt=m.uploaded_at
+        uploadedBy={"id": current_user.id, "name": current_user.name},
+        uploadedAt=m.uploaded_at,
+        isUsed=False  # Would need to check in questions
     ) for m in media_list]
 
 
@@ -68,9 +72,11 @@ async def get_orphaned_media(
     media_list = await media_service.get_orphaned_media(db)
     
     return [MediaDto(
-        mediaId=m.id,
+        id=m.id,
         url=m.url,
         filename=m.filename,
         mimeType=m.mime_type,
-        uploadedAt=m.uploaded_at
+        uploadedBy={"id": m.uploaded_by_id, "name": "Unknown"},
+        uploadedAt=m.uploaded_at,
+        isUsed=False
     ) for m in media_list]

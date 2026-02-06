@@ -23,10 +23,33 @@ async def start_session(
     """Start a new quiz session."""
     session = await session_service.start_session(db, quiz_id, current_user)
     
+    # Get questions for the quiz (without answers)
+    from app.models.quiz import Quiz
+    from sqlalchemy import select
+    result = await db.execute(select(Quiz).where(Quiz.id == quiz_id))
+    quiz = result.scalar_one()
+    
+    questions = []
+    for q in quiz.questions:
+        question_dto = {
+            "id": q.id,
+            "type": q.type,
+            "contentText": q.content_text,
+            "mediaUrl": q.media.url if q.media else None,
+            "options": []
+        }
+        
+        if q.type in ["QCM", "VRAI_FAUX"]:
+            question_dto["options"] = [{
+                "id": str(i),
+                "textChoice": opt.text_choice
+            } for i, opt in enumerate(q.options)]
+        
+        questions.append(question_dto)
+    
     return GameSessionStartDto(
         sessionId=session.id,
-        quizId=session.quiz_id,
-        startedAt=session.started_at
+        questions=questions
     )
 
 
@@ -38,11 +61,21 @@ async def submit_answer(
     db: AsyncSession = Depends(get_db)
 ):
     """Submit an answer to a question."""
+    # Extract answer data from SubmitAnswerDto
+    answer_data = {
+        "selected_option_ids": [data.selected_option_id] if data.selected_option_id else [],
+        "text_answer": data.text_response
+    }
+    
     is_correct = await session_service.submit_answer(
-        db, sessionId, data.question_id, data.answer_data, current_user
+        db, sessionId, str(data.question_id), answer_data, current_user
     )
     
-    return AnswerResultDto(isCorrect=is_correct)
+    return AnswerResultDto(
+        questionId=data.question_id,
+        isCorrect=is_correct,
+        message="Correct!" if is_correct else "Incorrect"
+    )
 
 
 @router.post("/{sessionId}/finish", response_model=SessionResultDto)
@@ -56,6 +89,7 @@ async def finish_session(
     
     return SessionResultDto(
         sessionId=session.id,
+        quizId=session.quiz_id,
         totalScore=session.total_score,
         maxScore=session.max_score,
         passed=session.passed,

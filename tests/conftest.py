@@ -13,11 +13,10 @@ from datetime import datetime, timedelta
 from typing import Dict, Any
 from jose import jwt
 
-# Note: These imports will need to be adjusted once the actual app is implemented
-# from app.main import app
-# from app.core.config import settings
-# from app.db.session import get_db
-# from app.services.auth import auth_service
+from main import app
+from app.core.config import settings
+from app.db.session import get_db
+from fastapi.testclient import TestClient
 
 
 # =============================================================================
@@ -95,29 +94,7 @@ def client(test_db):
     Returns:
         TestClient: Configured test client
     """
-    # TODO: Implement once the app is available
-    # from fastapi.testclient import TestClient
-    # from app.main import app
-    # return TestClient(app)
-    
-    # Mock client for now - will be replaced with actual implementation
-    class MockClient:
-        def __init__(self):
-            self.base_url = "http://testserver/api"
-            
-        def get(self, url, **kwargs):
-            pass
-        
-        def post(self, url, **kwargs):
-            pass
-        
-        def patch(self, url, **kwargs):
-            pass
-        
-        def delete(self, url, **kwargs):
-            pass
-    
-    return MockClient()
+    return TestClient(app)
 
 
 # =============================================================================
