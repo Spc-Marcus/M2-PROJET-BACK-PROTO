@@ -81,7 +81,6 @@ TEST_JWT_ALGORITHM = "HS256"
 @pytest.fixture(scope="session")
 def event_loop():
     """Create an event loop for async fixtures."""
-    import asyncio
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
@@ -145,13 +144,11 @@ def client(test_session_maker):
     """
     from app.db.session import get_db
     
-    def _override_get_db():
-        async def _get_db():
-            async with test_session_maker() as session:
-                yield session
-        return _get_db()
+    async def override_get_db():
+        async with test_session_maker() as session:
+            yield session
     
-    app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_db] = override_get_db
     
     with TestClient(app) as test_client:
         yield test_client
