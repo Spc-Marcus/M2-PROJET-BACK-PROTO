@@ -43,8 +43,6 @@ class BoxDistributionDto(BaseModel):
 
 
 class LeitnerSessionQuestionDto(GameSessionQuestionDto):
-    model_config = ConfigDict(populate_by_name=True)
-
     current_box: int = Field(..., alias="currentBox")
 
 
