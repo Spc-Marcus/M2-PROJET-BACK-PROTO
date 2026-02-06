@@ -9,7 +9,7 @@ from app.models.user import User
 from app.schemas.progress import ModuleProgressDto, QuizProgressDto
 from app.services import progress_service
 
-router = APIRouter(prefix="/api/progress", tags=["progress"])
+router = APIRouter()
 
 
 @router.get("/modules/{moduleId}", response_model=ModuleProgressDto)

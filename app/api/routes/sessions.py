@@ -11,7 +11,7 @@ from app.schemas.session import (
 )
 from app.services import session_service
 
-router = APIRouter(prefix="/api/sessions", tags=["sessions"])
+router = APIRouter()
 
 
 @router.post("/start", response_model=GameSessionStartDto)

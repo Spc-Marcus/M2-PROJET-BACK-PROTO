@@ -9,7 +9,7 @@ from app.models.user import User
 from app.schemas.media import MediaDto
 from app.services import media_service
 
-router = APIRouter(prefix="/api/media", tags=["media"])
+router = APIRouter()
 
 
 @router.post("", response_model=MediaDto, status_code=status.HTTP_201_CREATED)

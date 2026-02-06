@@ -13,7 +13,7 @@ from app.schemas.classroom import (
 )
 from app.services import classroom_service
 
-router = APIRouter(prefix="/api/classrooms", tags=["classrooms"])
+router = APIRouter()
 
 
 @router.get("", response_model=List[ClassroomDto])

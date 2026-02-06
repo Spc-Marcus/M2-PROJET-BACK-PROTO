@@ -9,7 +9,7 @@ from app.models.user import User, Role
 from app.schemas.auth import AuthRequestDto, RegisterStudentDto, UserResponseDto
 from app.services import auth_service
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter()
 
 
 @router.post("/login")

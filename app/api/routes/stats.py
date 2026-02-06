@@ -7,7 +7,7 @@ from app.api.deps import get_current_user, get_current_student
 from app.models.user import User
 from app.services import stats_service
 
-router = APIRouter(prefix="/api/stats", tags=["stats"])
+router = APIRouter()
 
 
 @router.get("/student")

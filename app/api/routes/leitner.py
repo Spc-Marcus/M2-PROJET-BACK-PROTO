@@ -13,7 +13,7 @@ from app.schemas.leitner import (
 from app.schemas.session import SubmitAnswerDto, AnswerResultDto
 from app.services import leitner_service
 
-router = APIRouter(tags=["leitner"])
+router = APIRouter()
 
 
 @router.get("/api/classrooms/{cid}/leitner/status", response_model=LeitnerBoxesStatusDto)

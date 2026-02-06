@@ -9,7 +9,7 @@ from app.models.user import User
 from app.schemas.quiz import QuizDto
 from app.services import quiz_service
 
-router = APIRouter(tags=["quizzes"])
+router = APIRouter()
 
 
 @router.get("/api/modules/{mid}/quizzes", response_model=List[QuizDto])

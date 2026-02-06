@@ -9,7 +9,7 @@ from app.models.user import User
 from app.schemas.module import ModuleDto
 from app.services import module_service
 
-router = APIRouter(tags=["modules"])
+router = APIRouter()
 
 
 @router.get("/api/classrooms/{cid}/modules", response_model=List[ModuleDto])
