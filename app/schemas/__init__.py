@@ -46,7 +46,7 @@ from .session import (
     ClickedCoordinatesDto,
     GameSessionQuestionDto,
     GameSessionStartDto,
-    MatchedPairDto,
+    SubmitMatchedPairDto,
     SessionResultDto,
     SubmitAnswerDto,
 )
@@ -107,7 +107,7 @@ __all__ = [
     "ClickedCoordinatesDto",
     "GameSessionQuestionDto",
     "GameSessionStartDto",
-    "MatchedPairDto",
+    "SubmitMatchedPairDto",
     "SessionResultDto",
     "SubmitAnswerDto",
 ]

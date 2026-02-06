@@ -8,8 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class GameSessionQuestionOptionDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    id: str = Field(..., alias="id", validation_alias="id")
-    text_choice: str = Field(..., alias="textChoice", validation_alias="textChoice")
+    id: str = Field(..., alias="id")
+    text_choice: str = Field(..., alias="textChoice")
 
 
 class GameSessionQuestionDto(BaseModel):
@@ -36,7 +36,7 @@ class ClickedCoordinatesDto(BaseModel):
     y: float = Field(..., alias="y")
 
 
-class MatchedPairDto(BaseModel):
+class SubmitMatchedPairDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     left_id: UUID = Field(..., alias="leftId")
@@ -51,7 +51,7 @@ class SubmitAnswerDto(BaseModel):
     selected_option_id: Optional[UUID] = Field(None, alias="selectedOptionId")
     clicked_coordinates: Optional[ClickedCoordinatesDto] = Field(None, alias="clickedCoordinates")
     text_response: Optional[str] = Field(None, alias="textResponse")
-    matched_pairs: Optional[list[MatchedPairDto]] = Field(None, alias="matchedPairs")
+    matched_pairs: Optional[list[SubmitMatchedPairDto]] = Field(None, alias="matchedPairs")
 
 
 class AnswerResultDto(BaseModel):
