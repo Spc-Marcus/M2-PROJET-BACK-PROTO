@@ -69,12 +69,13 @@ class HardQuestionDto(BaseModel):
 
 
 class ModuleStatsDto(BaseModel):
+    """Statistics for a module in the professor dashboard."""
     model_config = ConfigDict(populate_by_name=True)
 
     module_name: str = Field(..., alias="moduleName")
     average_score: float = Field(..., alias="averageScore")
     completion_rate: float = Field(..., alias="completionRate")
-    alert_students: list[str] = Field(..., alias="alertStudents")
+    alert_students: list[str] = Field(..., alias="alertStudents")  # List of student names (e.g., ["Jean Dupont"])
     hardest_questions: list[HardQuestionDto] = Field(..., alias="hardestQuestions")
 
 

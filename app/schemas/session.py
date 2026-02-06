@@ -6,9 +6,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class GameSessionQuestionOptionDto(BaseModel):
+    """Option for a game session question. The id field is a string identifier (e.g., 'opt1', 'opt2')."""
     model_config = ConfigDict(populate_by_name=True)
 
-    id: str = Field(..., alias="id")
+    id: str = Field(..., alias="id")  # String identifier like "opt1", "opt2"
     text_choice: str = Field(..., alias="textChoice")
 
 
