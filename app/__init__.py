@@ -1,0 +1,3 @@
+"""
+Duobingo API - FastAPI Backend
+"""

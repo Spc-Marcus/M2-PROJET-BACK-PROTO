@@ -9,15 +9,20 @@ This module provides:
 """
 
 import pytest
+import asyncio
 from datetime import datetime, timedelta
-from typing import Dict, Any
+from typing import Dict, Any, AsyncGenerator
 from jose import jwt
+from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.pool import StaticPool
 
-# Note: These imports will need to be adjusted once the actual app is implemented
-# from app.main import app
-# from app.core.config import settings
-# from app.db.session import get_db
-# from app.services.auth import auth_service
+from app.main import app
+from app.core.config import settings
+from app.db.session import get_db, Base
+from app.models.user import User, Role, Level, StudentProfile, TeacherProfile
+from app.core.security import get_password_hash
+from app.models import *  # noqa - Import all models to ensure they're registered with Base
 
 
 # =============================================================================
@@ -74,50 +79,73 @@ TEST_JWT_ALGORITHM = "HS256"
 # =============================================================================
 
 @pytest.fixture(scope="session")
-def test_db():
+async def test_engine():
     """
-    Create a test database for the entire test session.
-    Uses SQLite in-memory database for speed.
+    Create a test database engine for the entire test session.
+    Uses SQLite in-memory database with async support.
     """
-    # TODO: Implement once the app is available
-    # from app.db.session import engine, Base
-    # Base.metadata.create_all(bind=engine)
-    # yield
-    # Base.metadata.drop_all(bind=engine)
-    pass
+    test_engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=False
+    )
+    
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    yield test_engine
+    
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    
+    await test_engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def test_session_maker(test_engine):
+    """Create a session maker for the test database."""
+    return async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
 
 @pytest.fixture
-def client(test_db):
+async def test_db(test_session_maker):
+    """
+    Create a test database session for each test.
+    Automatically rolls back after each test for isolation.
+    """
+    async with test_session_maker() as session:
+        yield session
+        await session.rollback()
+
+
+async def override_get_db(test_session_maker):
+    """Override the database dependency with test database."""
+    async with test_session_maker() as session:
+        yield session
+
+
+@pytest.fixture
+def client(test_session_maker):
     """
     FastAPI TestClient for making HTTP requests.
+    Uses dependency override to inject test database.
     
     Returns:
         TestClient: Configured test client
     """
-    # TODO: Implement once the app is available
-    # from fastapi.testclient import TestClient
-    # from app.main import app
-    # return TestClient(app)
+    from app.db.session import get_db
     
-    # Mock client for now - will be replaced with actual implementation
-    class MockClient:
-        def __init__(self):
-            self.base_url = "http://testserver/api"
-            
-        def get(self, url, **kwargs):
-            pass
-        
-        def post(self, url, **kwargs):
-            pass
-        
-        def patch(self, url, **kwargs):
-            pass
-        
-        def delete(self, url, **kwargs):
-            pass
+    async def override_get_db():
+        async with test_session_maker() as session:
+            yield session
     
-    return MockClient()
+    app.dependency_overrides[get_db] = override_get_db
+    
+    with TestClient(app) as test_client:
+        yield test_client
+    
+    app.dependency_overrides.clear()
 
 
 # =============================================================================
@@ -234,11 +262,57 @@ def expired_token() -> str:
 
 
 # =============================================================================
+# SEED DATA FIXTURES
+# =============================================================================
+
+@pytest.fixture
+async def seed_users(test_db: AsyncSession):
+    """
+    Seed the test database with the 5 test users.
+    Creates users with proper password hashing and profiles.
+    
+    Returns:
+        Dict mapping user keys to user IDs
+    """
+    user_ids = {}
+    
+    for key, user_data in TEST_USERS.items():
+        # Create user
+        user = User(
+            email=user_data["email"],
+            password=get_password_hash(user_data["password"]),
+            name=user_data["name"],
+            role=Role[user_data["role"]]
+        )
+        test_db.add(user)
+        await test_db.flush()
+        
+        # Create profile based on role
+        if user_data["role"] == "STUDENT":
+            profile = StudentProfile(
+                user_id=user.id,
+                level=Level[user_data["level"]]
+            )
+            test_db.add(profile)
+        elif user_data["role"] == "TEACHER":
+            profile = TeacherProfile(
+                user_id=user.id,
+                faculty_department=user_data.get("department")
+            )
+            test_db.add(profile)
+        
+        user_ids[key] = user.id
+    
+    await test_db.commit()
+    return user_ids
+
+
+# =============================================================================
 # TEST DATA FIXTURES
 # =============================================================================
 
 @pytest.fixture
-def classroom_id(client, prof_responsible_token) -> str:
+def classroom_id(client, prof_responsible_token, seed_users) -> str:
     """
     UUID of a classroom created for tests.
     
@@ -247,14 +321,13 @@ def classroom_id(client, prof_responsible_token) -> str:
     Returns:
         str: UUID of the test classroom
     """
-    # TODO: Implement once the app is available
-    # response = client.post(
-    #     "/api/classrooms",
-    #     headers={"Authorization": f"Bearer {prof_responsible_token}"},
-    #     json={"name": "Test Anatomie L1", "level": "L1"}
-    # )
-    # return response.json()["id"]
-    return "test-classroom-id"
+    response = client.post(
+        "/api/classrooms",
+        headers={"Authorization": f"Bearer {prof_responsible_token}"},
+        json={"name": "Test Anatomie L1", "level": "L1", "code": TEST_CLASSROOM_CODE}
+    )
+    assert response.status_code in [200, 201], f"Failed to create classroom: {response.text}"
+    return response.json()["id"]
 
 
 @pytest.fixture
@@ -268,14 +341,13 @@ def module_id(client, prof_responsible_token, classroom_id) -> str:
     Returns:
         str: UUID of the test module
     """
-    # TODO: Implement once the app is available
-    # response = client.post(
-    #     f"/api/classrooms/{classroom_id}/modules",
-    #     headers={"Authorization": f"Bearer {prof_responsible_token}"},
-    #     json={"name": "Test Module", "category": "Ostéologie"}
-    # )
-    # return response.json()["id"]
-    return "test-module-id"
+    response = client.post(
+        f"/api/classrooms/{classroom_id}/modules",
+        headers={"Authorization": f"Bearer {prof_responsible_token}"},
+        json={"name": "Test Module", "category": "Ostéologie"}
+    )
+    assert response.status_code in [200, 201], f"Failed to create module: {response.text}"
+    return response.json()["id"]
 
 
 @pytest.fixture
@@ -289,18 +361,17 @@ def quiz_id(client, prof_responsible_token, module_id) -> str:
     Returns:
         str: UUID of the test quiz
     """
-    # TODO: Implement once the app is available
-    # response = client.post(
-    #     f"/api/modules/{module_id}/quizzes",
-    #     headers={"Authorization": f"Bearer {prof_responsible_token}"},
-    #     json={
-    #         "title": "Test Quiz",
-    #         "minScoreToUnlockNext": 15,
-    #         "isActive": True
-    #     }
-    # )
-    # return response.json()["id"]
-    return "test-quiz-id"
+    response = client.post(
+        f"/api/modules/{module_id}/quizzes",
+        headers={"Authorization": f"Bearer {prof_responsible_token}"},
+        json={
+            "title": "Test Quiz",
+            "minScoreToUnlockNext": 15,
+            "isActive": True
+        }
+    )
+    assert response.status_code in [200, 201], f"Failed to create quiz: {response.text}"
+    return response.json()["id"]
 
 
 @pytest.fixture
@@ -314,25 +385,24 @@ def question_id(client, prof_responsible_token, quiz_id) -> str:
     Returns:
         str: UUID of the test question
     """
-    # TODO: Implement once the app is available
-    # response = client.post(
-    #     f"/api/quizzes/{quiz_id}/questions",
-    #     headers={"Authorization": f"Bearer {prof_responsible_token}"},
-    #     json={
-    #         "type": "QCM",
-    #         "contentText": "Test question?",
-    #         "options": [
-    #             {"textChoice": "Answer A", "isCorrect": True},
-    #             {"textChoice": "Answer B", "isCorrect": False}
-    #         ]
-    #     }
-    # )
-    # return response.json()["id"]
-    return "test-question-id"
+    response = client.post(
+        f"/api/quizzes/{quiz_id}/questions",
+        headers={"Authorization": f"Bearer {prof_responsible_token}"},
+        json={
+            "type": "QCM",
+            "contentText": "Test question?",
+            "options": [
+                {"textChoice": "Answer A", "isCorrect": True},
+                {"textChoice": "Answer B", "isCorrect": False}
+            ]
+        }
+    )
+    assert response.status_code in [200, 201], f"Failed to create question: {response.text}"
+    return response.json()["id"]
 
 
 @pytest.fixture
-def session_id(client, student_token, quiz_id) -> str:
+def session_id(client, student_token, quiz_id, seed_users) -> str:
     """
     UUID of a quiz session created for tests.
     
@@ -342,18 +412,17 @@ def session_id(client, student_token, quiz_id) -> str:
     Returns:
         str: UUID of the test session
     """
-    # TODO: Implement once the app is available
-    # response = client.post(
-    #     "/api/sessions/start",
-    #     headers={"Authorization": f"Bearer {student_token}"},
-    #     json={"quizId": quiz_id}
-    # )
-    # return response.json()["sessionId"]
-    return "test-session-id"
+    response = client.post(
+        "/api/sessions/start",
+        headers={"Authorization": f"Bearer {student_token}"},
+        json={"quizId": quiz_id}
+    )
+    assert response.status_code in [200, 201], f"Failed to create session: {response.text}"
+    return response.json()["sessionId"]
 
 
 @pytest.fixture
-def leitner_session_id(client, student_token, classroom_id) -> str:
+def leitner_session_id(client, student_token, classroom_id, seed_users) -> str:
     """
     UUID of a Leitner session created for tests.
     
@@ -363,33 +432,38 @@ def leitner_session_id(client, student_token, classroom_id) -> str:
     Returns:
         str: UUID of the test Leitner session
     """
-    # TODO: Implement once the app is available
-    # response = client.post(
-    #     f"/api/classrooms/{classroom_id}/leitner/start",
-    #     headers={"Authorization": f"Bearer {student_token}"},
-    #     json={"questionCount": 10}
-    # )
-    # return response.json()["sessionId"]
-    return "test-leitner-session-id"
+    response = client.post(
+        f"/api/classrooms/{classroom_id}/leitner/start",
+        headers={"Authorization": f"Bearer {student_token}"},
+        json={"questionCount": 10}
+    )
+    assert response.status_code in [200, 201], f"Failed to create Leitner session: {response.text}"
+    return response.json()["sessionId"]
 
 
 @pytest.fixture
-def media_id(client, prof_responsible_token) -> str:
+def media_id(client, prof_responsible_token, seed_users) -> str:
     """
     UUID of a media file uploaded for tests.
     
     Returns:
         str: UUID of the test media
     """
-    # TODO: Implement once the app is available
-    # with open("test_image.jpg", "rb") as f:
-    #     response = client.post(
-    #         "/api/media",
-    #         headers={"Authorization": f"Bearer {prof_responsible_token}"},
-    #         files={"file": ("test.jpg", f, "image/jpeg")}
-    #     )
-    # return response.json()["mediaId"]
-    return "test-media-id"
+    import io
+    from PIL import Image
+    
+    img = Image.new('RGB', (100, 100), color='red')
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='JPEG')
+    img_bytes.seek(0)
+    
+    response = client.post(
+        "/api/media",
+        headers={"Authorization": f"Bearer {prof_responsible_token}"},
+        files={"file": ("test.jpg", img_bytes, "image/jpeg")}
+    )
+    assert response.status_code in [200, 201], f"Failed to upload media: {response.text}"
+    return response.json()["mediaId"]
 
 
 # =============================================================================
@@ -411,70 +485,64 @@ def auth_headers():
 
 
 @pytest.fixture
-def create_user(client):
+def create_user(test_db: AsyncSession):
     """
     Helper fixture to create a user for testing.
     
     Returns:
         Function that creates a user and returns user data
     """
-    def _create_user(email: str, password: str, role: str, **kwargs) -> Dict[str, Any]:
-        # TODO: Implement once the app is available
+    async def _create_user(email: str, password: str, role: str, **kwargs) -> Dict[str, Any]:
+        user = User(
+            email=email,
+            password=get_password_hash(password),
+            name=kwargs.get("name", "Test User"),
+            role=Role[role]
+        )
+        test_db.add(user)
+        await test_db.flush()
+        
+        if role == "STUDENT":
+            profile = StudentProfile(
+                user_id=user.id,
+                level=Level[kwargs.get("level", "L1")]
+            )
+            test_db.add(profile)
+        elif role == "TEACHER":
+            profile = TeacherProfile(
+                user_id=user.id,
+                faculty_department=kwargs.get("department")
+            )
+            test_db.add(profile)
+        
+        await test_db.commit()
         return {
-            "id": "test-user-id",
-            "email": email,
-            "role": role
+            "id": user.id,
+            "email": user.email,
+            "role": user.role.value
         }
     
     return _create_user
 
 
 @pytest.fixture
-def create_classroom(client, prof_responsible_token):
+def create_classroom(client, prof_responsible_token, seed_users):
     """
     Helper fixture to create a classroom for testing.
     
     Returns:
         Function that creates a classroom and returns classroom data
     """
-    def _create_classroom(name: str, level: str) -> Dict[str, Any]:
-        # TODO: Implement once the app is available
-        return {
-            "id": "test-classroom-id",
-            "name": name,
-            "level": level,
-            "code": TEST_CLASSROOM_CODE
-        }
+    def _create_classroom(name: str, level: str, code: str = None) -> Dict[str, Any]:
+        response = client.post(
+            "/api/classrooms",
+            headers={"Authorization": f"Bearer {prof_responsible_token}"},
+            json={"name": name, "level": level, "code": code or TEST_CLASSROOM_CODE}
+        )
+        assert response.status_code in [200, 201], f"Failed to create classroom: {response.text}"
+        return response.json()
     
     return _create_classroom
-
-
-# =============================================================================
-# MOCK SERVICES (for testing different scenarios)
-# =============================================================================
-
-@pytest.fixture
-def mock_auth_service(monkeypatch):
-    """
-    Mock the authentication service for testing different scenarios.
-    
-    This allows testing various authentication flows without a real database.
-    """
-    class MockAuthService:
-        def verify_token(self, token: str):
-            """Mock token verification"""
-            if token == "invalid":
-                raise Exception("Invalid token")
-            return {"sub": "test-user-id", "role": "STUDENT"}
-        
-        def create_token(self, user_id: str, role: str):
-            """Mock token creation"""
-            return create_test_token({"id": user_id, "role": role, "email": "test@test.com"})
-    
-    # TODO: Use monkeypatch to replace the actual auth service
-    # monkeypatch.setattr("app.services.auth.auth_service", MockAuthService())
-    
-    return MockAuthService()
 
 
 # =============================================================================
@@ -482,21 +550,11 @@ def mock_auth_service(monkeypatch):
 # =============================================================================
 
 @pytest.fixture(autouse=True)
-def reset_database():
+async def reset_database(test_db: AsyncSession):
     """
     Automatically reset the database before each test.
     
-    This ensures test isolation.
+    This ensures test isolation by rolling back any changes.
     """
-    # TODO: Implement database reset logic
     yield
-    # Cleanup after test
-
-
-@pytest.fixture(autouse=True)
-def clear_cache():
-    """
-    Clear any caches before each test.
-    """
-    # TODO: Implement cache clearing if needed
-    yield
+    await test_db.rollback()
