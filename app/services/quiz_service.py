@@ -2,6 +2,7 @@
 from typing import List, Optional, Set
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 
 from app.models.quiz import Quiz
@@ -15,7 +16,6 @@ MAX_PREREQUISITE_DEPTH = 50
 
 async def get_quizzes_by_module(db: AsyncSession, module_id: str) -> List[Quiz]:
     """Get all quizzes for a module."""
-    from sqlalchemy.orm import selectinload
     result = await db.execute(
         select(Quiz)
         .options(selectinload(Quiz.created_by))
@@ -27,7 +27,6 @@ async def get_quizzes_by_module(db: AsyncSession, module_id: str) -> List[Quiz]:
 
 async def get_quiz_by_id(db: AsyncSession, quiz_id: str) -> Quiz:
     """Get a quiz by ID."""
-    from sqlalchemy.orm import selectinload
     result = await db.execute(
         select(Quiz)
         .options(selectinload(Quiz.created_by))
@@ -95,16 +94,7 @@ async def create_quiz(
         )
     
     await db.commit()
-    await db.refresh(quiz)
-    
-    # Load created_by relationship
-    from sqlalchemy.orm import selectinload
-    result = await db.execute(
-        select(Quiz)
-        .options(selectinload(Quiz.created_by))
-        .where(Quiz.id == quiz.id)
-    )
-    quiz = result.scalar_one()
+    await db.refresh(quiz, attribute_names=['created_by'])
     
     return quiz
 
@@ -119,7 +109,6 @@ async def update_quiz(
     user: User
 ) -> Quiz:
     """Update a quiz (teacher of course)."""
-    from sqlalchemy.orm import selectinload
     result = await db.execute(
         select(Quiz)
         .options(selectinload(Quiz.created_by))
