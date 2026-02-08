@@ -1,22 +1,38 @@
 from datetime import datetime
 from typing import Optional
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from .auth import UserSummaryDto
 
 
-class QuizDto(BaseModel):
+class CreateQuizDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    id: UUID = Field(..., alias="id")
-    module_id: UUID = Field(..., alias="moduleId")
     title: str = Field(..., alias="title")
-    prerequisite_quiz_id: Optional[UUID] = Field(None, alias="prerequisiteQuizId")
-    min_score_to_unlock_next: int = Field(..., alias="minScoreToUnlockNext")
-    question_count: int = Field(..., alias="questionCount")
-    is_active: bool = Field(..., alias="isActive")
-    is_locked: bool = Field(..., alias="isLocked")
-    created_by: UserSummaryDto = Field(..., alias="createdBy")
-    created_at: datetime = Field(..., alias="createdAt")
+    prerequisite_quiz_id: Optional[str] = Field(None, alias="prerequisiteQuizId")
+    min_score_to_unlock_next: Optional[int] = Field(None, alias="minScoreToUnlockNext")
+    is_active: Optional[bool] = Field(True, alias="isActive")
+
+
+class UpdateQuizDto(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    title: Optional[str] = Field(None, alias="title")
+    prerequisite_quiz_id: Optional[str] = Field(None, alias="prerequisiteQuizId")
+    min_score_to_unlock_next: Optional[int] = Field(None, alias="minScoreToUnlockNext")
+    is_active: Optional[bool] = Field(None, alias="isActive")
+
+
+class QuizDto(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+    id: str = Field(..., alias="id")
+    module_id: str = Field(..., alias="moduleId", validation_alias="module_id")
+    title: str = Field(..., alias="title")
+    prerequisite_quiz_id: Optional[str] = Field(None, alias="prerequisiteQuizId", validation_alias="prerequisite_quiz_id")
+    min_score_to_unlock_next: Optional[int] = Field(None, alias="minScoreToUnlockNext", validation_alias="min_score_to_unlock_next")
+    question_count: int = Field(default=0, alias="questionCount")
+    is_active: bool = Field(default=True, alias="isActive", validation_alias="is_active")
+    is_locked: bool = Field(default=False, alias="isLocked")
+    created_at: Optional[datetime] = Field(None, alias="createdAt", validation_alias="created_at")

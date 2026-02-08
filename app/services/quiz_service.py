@@ -23,6 +23,17 @@ async def get_quizzes_by_module(db: AsyncSession, module_id: str) -> List[Quiz]:
     return list(result.scalars().all())
 
 
+async def get_quiz_by_id(db: AsyncSession, quiz_id: str) -> Quiz:
+    """Get a quiz by ID."""
+    result = await db.execute(select(Quiz).where(Quiz.id == quiz_id))
+    quiz = result.scalar_one_or_none()
+    
+    if not quiz:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quiz not found")
+    
+    return quiz
+
+
 async def create_quiz(
     db: AsyncSession,
     module_id: str,
@@ -41,6 +52,13 @@ async def create_quiz(
     
     if not await is_classroom_teacher(db, module.classroom_id, user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="INSUFFICIENT_PERMISSIONS")
+    
+    # Validate min_score_to_unlock_next
+    if min_score_to_unlock_next is not None and min_score_to_unlock_next < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="minScoreToUnlockNext must be >= 0"
+        )
     
     # Validate prerequisite
     if prerequisite_quiz_id:

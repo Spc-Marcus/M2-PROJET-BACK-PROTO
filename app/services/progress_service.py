@@ -86,13 +86,18 @@ async def get_module_progress(db: AsyncSession, module_id: str, user: User) -> D
     )
     is_module_completed = result.scalar_one_or_none() is not None
     
+    # Calculate completion rate
+    completion_rate = round(completed_count / len(quizzes), 2) if len(quizzes) > 0 else 0.0
+    
     return {
         "module_id": module.id,
         "module_name": module.name,
         "is_locked": is_locked,
         "is_completed": is_module_completed,
+        "completion_rate": completion_rate,
         "total_quizzes": len(quizzes),
         "completed_quizzes": completed_count,
+        "quizzes": quiz_progress,
         "quiz_progress": quiz_progress
     }
 
@@ -150,8 +155,8 @@ async def get_quiz_progress(db: AsyncSession, quiz_id: str, user: User) -> Dict[
         "quiz_title": quiz.title,
         "is_locked": is_locked,
         "is_completed": is_completed,
-        "best_score": round(best_score, 2) if best_score else None,
-        "attempts": attempts or 0,
+        "best_score": round(best_score, 2) if best_score is not None else 0,
+        "attempts_count": attempts or 0,
         "min_score_to_unlock": quiz.min_score_to_unlock_next
     }
 
@@ -184,6 +189,13 @@ async def get_student_progress_for_teacher(
     user: User
 ) -> List[Dict[str, Any]]:
     """Get a specific student's progress (teacher view)."""
+    # Check classroom exists first
+    from app.models.classroom import Classroom
+    result = await db.execute(select(Classroom).where(Classroom.id == classroom_id))
+    classroom = result.scalar_one_or_none()
+    if not classroom:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found")
+    
     if not await is_classroom_teacher(db, classroom_id, user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="INSUFFICIENT_PERMISSIONS")
     

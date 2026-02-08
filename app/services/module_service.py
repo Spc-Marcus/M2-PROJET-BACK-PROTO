@@ -6,8 +6,8 @@ from fastapi import HTTPException, status
 
 from app.models.module import Module
 from app.models.classroom import Classroom
-from app.models.user import User
-from app.services.classroom_service import is_responsible_professor
+from app.models.user import User, Role
+from app.services.classroom_service import is_responsible_professor, is_classroom_member
 
 
 MAX_PREREQUISITE_DEPTH = 50
@@ -15,12 +15,28 @@ MAX_PREREQUISITE_DEPTH = 50
 
 async def get_modules_by_classroom(db: AsyncSession, classroom_id: str, user: User) -> List[Module]:
     """Get all modules for a classroom."""
+    # Students must be a member of the classroom
+    if user.role == Role.STUDENT:
+        if not await is_classroom_member(db, classroom_id, user.id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="INSUFFICIENT_PERMISSIONS")
+    
     result = await db.execute(
         select(Module)
         .where(Module.classroom_id == classroom_id)
         .order_by(Module.created_at)
     )
     return list(result.scalars().all())
+
+
+async def get_module_by_id(db: AsyncSession, module_id: str, user: User) -> Module:
+    """Get a module by ID."""
+    result = await db.execute(select(Module).where(Module.id == module_id))
+    module = result.scalar_one_or_none()
+    
+    if not module:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found")
+    
+    return module
 
 
 async def create_module(

@@ -28,11 +28,11 @@ class Classroom(Base):
     students = relationship("ClassroomStudent", back_populates="classroom", cascade="all, delete-orphan")
     
     # Sessions
-    quiz_sessions = relationship("QuizSession", back_populates="classroom", foreign_keys="QuizSession.classroom_id")
+    quiz_sessions = relationship("QuizSession", back_populates="classroom", foreign_keys="QuizSession.classroom_id", cascade="all, delete-orphan")
     
     # Leitner
-    leitner_boxes = relationship("LeitnerBox", back_populates="classroom", foreign_keys="LeitnerBox.classroom_id")
-    leitner_sessions = relationship("LeitnerSession", back_populates="classroom", foreign_keys="LeitnerSession.classroom_id")
+    leitner_boxes = relationship("LeitnerBox", back_populates="classroom", foreign_keys="LeitnerBox.classroom_id", cascade="all, delete-orphan")
+    leitner_sessions = relationship("LeitnerSession", back_populates="classroom", foreign_keys="LeitnerSession.classroom_id", cascade="all, delete-orphan")
 
 
 class ClassroomTeacher(Base):

@@ -10,24 +10,80 @@ from app.models.media import Media
 from app.models.question import Question
 from app.models.user import User
 
+# Allowed image MIME types
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"}
+# Allowed image file extensions
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
+# Max file size (10MB)
+MAX_FILE_SIZE = 10 * 1024 * 1024
+
+# Known image magic bytes
+IMAGE_SIGNATURES = {
+    b'\xff\xd8\xff': 'image/jpeg',
+    b'\x89PNG': 'image/png',
+    b'GIF87a': 'image/gif',
+    b'GIF89a': 'image/gif',
+    b'RIFF': 'image/webp',
+}
+
+
+def _validate_image_content(data: bytes) -> bool:
+    """Check if the data starts with a known image magic byte signature."""
+    for sig in IMAGE_SIGNATURES:
+        if data[:len(sig)] == sig:
+            return True
+    # Also accept SVG (starts with < or <?xml)
+    if data.strip()[:5] in (b'<?xml', b'<svg '):
+        return True
+    return False
+
 
 async def upload_media(db: AsyncSession, file: UploadFile, user: User) -> Media:
     """Upload a media file."""
+    # Validate MIME type
+    content_type = file.content_type or "application/octet-stream"
+    if content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only image files are accepted."
+        )
+    
+    # Validate file extension
+    if file.filename:
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid file extension. Allowed: JPG, PNG, GIF, WebP, SVG"
+            )
+    
+    # Read content and validate size
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too large. Maximum size is 10MB."
+        )
+    
+    # Validate image content (magic bytes)
+    if not _validate_image_content(content):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image content. File does not appear to be a valid image."
+        )
+    
     # Generate unique filename
-    file_ext = os.path.splitext(file.filename)[1]
+    file_ext = os.path.splitext(file.filename)[1] if file.filename else ".bin"
     unique_filename = f"{uuid.uuid4()}{file_ext}"
     
     # In production, upload to cloud storage (S3, etc.)
     # For now, we'll just create a placeholder URL
     url = f"/media/{unique_filename}"
     
-    # TODO: Save file to storage
-    # For now, we just save metadata
-    
     media = Media(
         url=url,
         filename=file.filename,
-        mime_type=file.content_type or "application/octet-stream",
+        mime_type=content_type,
         uploaded_by_id=user.id
     )
     

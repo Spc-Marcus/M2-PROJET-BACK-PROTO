@@ -24,6 +24,10 @@ async def start_session(db: AsyncSession, quiz_id: str, user: User) -> QuizSessi
     if not quiz:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quiz not found")
     
+    # Check if quiz is active
+    if not quiz.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="QUIZ_INACTIVE")
+    
     result = await db.execute(select(Module).where(Module.id == quiz.module_id))
     module = result.scalar_one_or_none()
     
@@ -45,8 +49,8 @@ async def start_session(db: AsyncSession, quiz_id: str, user: User) -> QuizSessi
         )
         if not result.scalar_one_or_none():
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="QUIZ_PREREQUISITE_NOT_MET"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="QUIZ_LOCKED"
             )
     
     # Check if module is locked by prerequisite
@@ -60,8 +64,8 @@ async def start_session(db: AsyncSession, quiz_id: str, user: User) -> QuizSessi
         )
         if not result.scalar_one_or_none():
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="MODULE_PREREQUISITE_NOT_MET"
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="MODULE_LOCKED"
             )
     
     # Get question count for max_score
@@ -104,7 +108,7 @@ async def submit_answer(
     
     if session.status != SessionStatus.IN_PROGRESS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="SESSION_ALREADY_FINISHED"
         )
     
@@ -113,15 +117,18 @@ async def submit_answer(
         session.status = SessionStatus.ABANDONED
         await db.commit()
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="SESSION_ALREADY_FINISHED"
         )
     
     result = await db.execute(select(Question).where(Question.id == question_id))
     question = result.scalar_one_or_none()
     
-    if not question or question.quiz_id != session.quiz_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+    if not question:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="QUESTION_NOT_IN_SESSION")
+    
+    if question.quiz_id != session.quiz_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="QUESTION_NOT_IN_SESSION")
     
     # Check if already answered
     result = await db.execute(
@@ -160,7 +167,7 @@ async def finish_session(db: AsyncSession, session_id: str, user: User) -> QuizS
     
     if session.status != SessionStatus.IN_PROGRESS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="SESSION_ALREADY_FINISHED"
         )
     
@@ -205,7 +212,7 @@ async def get_session_review(db: AsyncSession, session_id: str, user: User) -> Q
     
     if session.status != SessionStatus.COMPLETED:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Session not completed yet"
         )
     
@@ -242,12 +249,29 @@ async def evaluate_answer(db: AsyncSession, question: Question, answer_data: Dic
         return pairs == correct_pairs
     
     elif question.type == QuestionType.IMAGE:
-        selected_zone_ids = answer_data.get("selected_zone_ids", [])
-        result = await db.execute(
-            select(ImageZone).where(ImageZone.question_id == question.id)
-        )
-        correct_zone_ids = {zone.id for zone in result.scalars().all()}
-        return set(selected_zone_ids) == correct_zone_ids
+        clicked = answer_data.get("clicked_coordinates")
+        if clicked:
+            # Check if click is within any correct zone's radius
+            x, y = clicked.get("x", 0), clicked.get("y", 0)
+            result = await db.execute(
+                select(ImageZone).where(ImageZone.question_id == question.id)
+            )
+            zones = list(result.scalars().all())
+            for zone in zones:
+                dx = x - zone.x
+                dy = y - zone.y
+                distance = (dx * dx + dy * dy) ** 0.5
+                if distance <= zone.radius:
+                    return True
+            return False
+        else:
+            # Fallback: check selected_zone_ids
+            selected_zone_ids = answer_data.get("selected_zone_ids", [])
+            result = await db.execute(
+                select(ImageZone).where(ImageZone.question_id == question.id)
+            )
+            correct_zone_ids = {zone.id for zone in result.scalars().all()}
+            return set(selected_zone_ids) == correct_zone_ids
     
     elif question.type == QuestionType.TEXT:
         user_answer = answer_data.get("text_answer", "").strip()

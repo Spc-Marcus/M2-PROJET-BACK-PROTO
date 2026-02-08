@@ -59,7 +59,7 @@ async def start_leitner_session(
     
     if question_count not in VALID_QUESTION_COUNTS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="INVALID_QUESTION_COUNT"
         )
     
@@ -75,7 +75,7 @@ async def start_leitner_session(
     
     if not boxes:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="LEITNER_NO_QUESTIONS"
         )
     
@@ -93,9 +93,21 @@ async def start_leitner_session(
     
     if question_count == 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="LEITNER_NO_QUESTIONS"
         )
+    
+    # Get the actual Question objects for the selected boxes
+    selected_question_ids = [box.question_id for box in selected_boxes]
+    result = await db.execute(
+        select(Question).where(Question.id.in_(selected_question_ids))
+    )
+    selected_questions = list(result.scalars().all())
+    
+    # Build distribution counts
+    distribution = {i: 0 for i in range(1, 6)}
+    for box in selected_boxes:
+        distribution[box.box_level] = distribution.get(box.box_level, 0) + 1
     
     # Create session
     session = LeitnerSession(
@@ -108,7 +120,7 @@ async def start_leitner_session(
     await db.commit()
     await db.refresh(session)
     
-    return session
+    return session, selected_questions, distribution
 
 
 async def submit_leitner_answer(
@@ -130,7 +142,7 @@ async def submit_leitner_answer(
     
     if session.completed_at:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="SESSION_ALREADY_FINISHED"
         )
     
@@ -205,7 +217,7 @@ async def finish_leitner_session(db: AsyncSession, session_id: str, user: User) 
     
     if session.completed_at:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="SESSION_ALREADY_FINISHED"
         )
     
@@ -272,7 +284,7 @@ async def get_leitner_review(db: AsyncSession, session_id: str, user: User) -> L
     
     if not session.completed_at:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Session not completed yet"
         )
     

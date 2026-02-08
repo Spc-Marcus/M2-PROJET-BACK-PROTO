@@ -39,9 +39,9 @@ class Question(Base):
     text_config = relationship("TextConfig", back_populates="question", uselist=False, cascade="all, delete-orphan")
     
     # Answers
-    session_answers = relationship("SessionAnswer", back_populates="question")
-    leitner_boxes = relationship("LeitnerBox", back_populates="question")
-    leitner_session_answers = relationship("LeitnerSessionAnswer", back_populates="question")
+    session_answers = relationship("SessionAnswer", back_populates="question", cascade="all, delete-orphan")
+    leitner_boxes = relationship("LeitnerBox", back_populates="question", cascade="all, delete-orphan")
+    leitner_session_answers = relationship("LeitnerSessionAnswer", back_populates="question", cascade="all, delete-orphan")
 
 
 class QuestionOption(Base):

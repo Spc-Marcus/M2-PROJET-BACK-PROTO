@@ -1,6 +1,8 @@
 """FastAPI application for Duobingo."""
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
@@ -48,17 +50,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return 400 instead of 422 for validation errors, with 'error' key."""
+    return JSONResponse(
+        status_code=400,
+        content={"error": "Validation error", "detail": exc.errors()},
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Return error responses with 'error' key for consistency."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail},
+    )
+
 # Include routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(classrooms.router, prefix="/api/classrooms", tags=["Classrooms"])
-app.include_router(modules.router, prefix="/api/modules", tags=["Modules"])
-app.include_router(quizzes.router, prefix="/api/quizzes", tags=["Quizzes"])
-app.include_router(questions.router, prefix="/api/quizzes", tags=["Questions"])
-app.include_router(sessions.router, prefix="/api/sessions", tags=["Quiz Sessions"])
-app.include_router(leitner.router, prefix="/api", tags=["Leitner"])
-app.include_router(stats.router, prefix="/api/stats", tags=["Statistics"])
-app.include_router(progress.router, prefix="/api/progress", tags=["Progress"])
-app.include_router(media.router, prefix="/api/media", tags=["Media"])
+app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+app.include_router(auth.users_router, tags=["Users"])
+app.include_router(auth.admin_router, tags=["Admin"])
+app.include_router(classrooms.router, prefix="/classrooms", tags=["Classrooms"])
+app.include_router(modules.router, tags=["Modules"])
+app.include_router(quizzes.router, tags=["Quizzes"])
+app.include_router(questions.router, tags=["Questions"])
+app.include_router(sessions.router, prefix="/sessions", tags=["Quiz Sessions"])
+app.include_router(leitner.router, tags=["Leitner"])
+app.include_router(stats.router, prefix="/stats", tags=["Statistics"])
+app.include_router(progress.router, prefix="/progress", tags=["Progress"])
+app.include_router(media.router, prefix="/media", tags=["Media"])
 
 
 @app.get("/health")

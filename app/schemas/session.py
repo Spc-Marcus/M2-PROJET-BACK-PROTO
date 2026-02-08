@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import Any, Literal, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,8 +15,8 @@ class GameSessionQuestionOptionDto(BaseModel):
 class GameSessionQuestionDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    id: UUID = Field(..., alias="id")
-    type: Literal["QCM", "VRAI_FAUX", "MATCHING", "IMAGE", "TEXT"] = Field(..., alias="type")
+    id: str = Field(..., alias="id")
+    type: str = Field(..., alias="type")
     content_text: str = Field(..., alias="contentText")
     media_url: Optional[str] = Field(None, alias="mediaUrl")
     options: Optional[list[GameSessionQuestionOptionDto]] = Field(None, alias="options")
@@ -26,8 +25,8 @@ class GameSessionQuestionDto(BaseModel):
 class GameSessionStartDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    session_id: UUID = Field(..., alias="sessionId")
-    questions: list[GameSessionQuestionDto] = Field(..., alias="questions")
+    session_id: str = Field(..., alias="sessionId")
+    questions: list[GameSessionQuestionDto] = Field(default=[], alias="questions")
 
 
 class ClickedCoordinatesDto(BaseModel):
@@ -40,16 +39,16 @@ class ClickedCoordinatesDto(BaseModel):
 class SubmitMatchedPairDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    left_id: UUID = Field(..., alias="leftId")
-    right_id: UUID = Field(..., alias="rightId")
+    left_id: str = Field(..., alias="leftId")
+    right_id: str = Field(..., alias="rightId")
 
 
 class SubmitAnswerDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    question_id: UUID = Field(..., alias="questionId")
-    type: Literal["QCM", "VRAI_FAUX", "MATCHING", "IMAGE", "TEXT"] = Field(..., alias="type")
-    selected_option_id: Optional[UUID] = Field(None, alias="selectedOptionId")
+    question_id: str = Field(..., alias="questionId")
+    type: Optional[Literal["QCM", "VRAI_FAUX", "MATCHING", "IMAGE", "TEXT"]] = Field(None, alias="type")
+    selected_option_id: Optional[str] = Field(None, alias="selectedOptionId")
     clicked_coordinates: Optional[ClickedCoordinatesDto] = Field(None, alias="clickedCoordinates")
     text_response: Optional[str] = Field(None, alias="textResponse")
     matched_pairs: Optional[list[SubmitMatchedPairDto]] = Field(None, alias="matchedPairs")
@@ -58,35 +57,35 @@ class SubmitAnswerDto(BaseModel):
 class AnswerResultDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    question_id: UUID = Field(..., alias="questionId")
+    question_id: str = Field(..., alias="questionId")
     is_correct: bool = Field(..., alias="isCorrect")
-    message: str = Field(..., alias="message")
+    message: Optional[str] = Field(None, alias="message")
 
 
 class SessionResultDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    session_id: UUID = Field(..., alias="sessionId")
-    quiz_id: UUID = Field(..., alias="quizId")
+    session_id: str = Field(..., alias="sessionId")
+    quiz_id: str = Field(..., alias="quizId")
     total_score: int = Field(..., alias="totalScore")
     max_score: int = Field(..., alias="maxScore")
     passed: bool = Field(..., alias="passed")
-    completed_at: datetime = Field(..., alias="completedAt")
+    completed_at: Optional[datetime] = Field(None, alias="completedAt")
 
 
 class SessionReviewAnswerDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    question_id: UUID = Field(..., alias="questionId")
+    question_id: str = Field(..., alias="questionId")
     is_correct: bool = Field(..., alias="isCorrect")
-    answer_data: Any = Field(..., alias="answerData")
+    answer_data: Any = Field(None, alias="answerData")
 
 
 class SessionReviewDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    session_id: UUID = Field(..., alias="sessionId")
+    session_id: str = Field(..., alias="sessionId")
     total_score: int = Field(..., alias="totalScore")
     max_score: int = Field(..., alias="maxScore")
     passed: bool = Field(..., alias="passed")
-    answers: list[SessionReviewAnswerDto] = Field(..., alias="answers")
+    answers: list[SessionReviewAnswerDto] = Field(default=[], alias="answers")

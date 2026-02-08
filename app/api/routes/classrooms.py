@@ -9,7 +9,8 @@ from app.api.deps import get_current_user, get_current_teacher
 from app.models.user import User
 from app.schemas.classroom import (
     ClassroomDto, ClassroomMembersDto, AddTeacherToClassroomDto,
-    EnrollStudentDto, RegenerateCodeResponseDto
+    EnrollStudentDto, RegenerateCodeResponseDto,
+    CreateClassroomDto, UpdateClassroomDto, JoinClassroomDto
 )
 from app.services import classroom_service
 
@@ -53,13 +54,12 @@ async def get_classrooms(
 
 @router.post("", response_model=ClassroomDto, status_code=status.HTTP_201_CREATED)
 async def create_classroom(
-    name: str,
-    level: str,
+    data: CreateClassroomDto,
     current_user: User = Depends(get_current_teacher),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new classroom."""
-    classroom = await classroom_service.create_classroom(db, name, level, current_user)
+    classroom = await classroom_service.create_classroom(db, data.name, data.level, current_user)
     
     return ClassroomDto(
         id=classroom.id,
@@ -74,6 +74,38 @@ async def create_classroom(
         },
         otherTeachers=[],
         studentCount=0
+    )
+
+
+@router.post("/join", response_model=ClassroomDto)
+async def join_classroom_by_code(
+    data: JoinClassroomDto,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Join classroom with code (student only)."""
+    classroom = await classroom_service.join_classroom_by_code(db, data.code, current_user)
+    
+    other_teachers = [t.teacher for t in classroom.teachers]
+    
+    return ClassroomDto(
+        id=classroom.id,
+        name=classroom.name,
+        level=classroom.level,
+        code=classroom.code,
+        responsibleProfessor={
+            "id": classroom.responsible_professor.id,
+            "email": classroom.responsible_professor.email,
+            "name": classroom.responsible_professor.name,
+            "role": classroom.responsible_professor.role
+        },
+        otherTeachers=[{
+            "id": t.id,
+            "email": t.email,
+            "name": t.name,
+            "role": t.role
+        } for t in other_teachers],
+        studentCount=len(classroom.students)
     )
 
 
@@ -112,13 +144,12 @@ async def get_classroom(
 @router.patch("/{id}", response_model=ClassroomDto)
 async def update_classroom(
     id: str,
-    name: str = None,
-    level: str = None,
+    data: UpdateClassroomDto,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Update classroom (responsible professor only)."""
-    classroom = await classroom_service.update_classroom(db, id, current_user, name, level)
+    classroom = await classroom_service.update_classroom(db, id, current_user, data.name, data.level)
     
     other_teachers = [t.teacher for t in classroom.teachers]
     
@@ -257,12 +288,12 @@ async def remove_student(
 @router.post("/{id}/join", response_model=ClassroomDto)
 async def join_classroom(
     id: str,
-    code: str,
+    data: JoinClassroomDto,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Join classroom with code."""
-    classroom = await classroom_service.join_classroom(db, id, code, current_user)
+    classroom = await classroom_service.join_classroom(db, id, data.code, current_user)
     
     other_teachers = [t.teacher for t in classroom.teachers]
     

@@ -8,8 +8,8 @@ class OptionDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     text_choice: str = Field(..., alias="textChoice")
-    is_correct: bool = Field(..., alias="isCorrect")
-    display_order: int = Field(..., alias="displayOrder")
+    is_correct: Optional[bool] = Field(None, alias="isCorrect")
+    display_order: Optional[int] = Field(None, alias="displayOrder")
 
 
 class MatchingPairDto(BaseModel):
@@ -32,8 +32,8 @@ class TextConfigDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     accepted_answer: str = Field(..., alias="acceptedAnswer")
-    is_case_sensitive: bool = Field(..., alias="isCaseSensitive")
-    ignore_spelling_errors: bool = Field(..., alias="ignoreSpellingErrors")
+    is_case_sensitive: Optional[bool] = Field(False, alias="isCaseSensitive")
+    ignore_spelling_errors: Optional[bool] = Field(False, alias="ignoreSpellingErrors")
 
 
 class QuestionCreateDto(BaseModel):
@@ -41,8 +41,22 @@ class QuestionCreateDto(BaseModel):
 
     type: Literal["QCM", "VRAI_FAUX", "MATCHING", "IMAGE", "TEXT"] = Field(..., alias="type")
     content_text: str = Field(..., alias="contentText")
-    explanation: str = Field(..., alias="explanation")
-    media_id: Optional[UUID] = Field(None, alias="mediaId")
+    explanation: Optional[str] = Field(None, alias="explanation")
+    media_id: Optional[str] = Field(None, alias="mediaId")
+    options: Optional[list[OptionDto]] = Field(None, alias="options")
+    matching_pairs: Optional[list[MatchingPairDto]] = Field(None, alias="matchingPairs")
+    image_zones: Optional[list[ImageZoneDto]] = Field(None, alias="imageZones")
+    text_config: Optional[TextConfigDto] = Field(None, alias="textConfig")
+
+
+class QuestionResponseDto(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+    id: str = Field(..., alias="id")
+    type: str = Field(..., alias="type")
+    content_text: str = Field(..., alias="contentText", validation_alias="content_text")
+    explanation: Optional[str] = Field(None, alias="explanation")
+    media_id: Optional[str] = Field(None, alias="mediaId", validation_alias="media_id")
     options: Optional[list[OptionDto]] = Field(None, alias="options")
     matching_pairs: Optional[list[MatchingPairDto]] = Field(None, alias="matchingPairs")
     image_zones: Optional[list[ImageZoneDto]] = Field(None, alias="imageZones")

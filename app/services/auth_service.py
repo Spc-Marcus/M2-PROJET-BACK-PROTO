@@ -1,11 +1,25 @@
 """Authentication service."""
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 
 from app.models.user import User, Role, StudentProfile, TeacherProfile
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.schemas.auth import AuthRequestDto, RegisterStudentDto
+
+
+async def get_user_with_profile(db: AsyncSession, user_id: str) -> User:
+    """Get user with eagerly loaded profiles."""
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.student_profile), selectinload(User.teacher_profile))
+        .where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return user
 
 
 async def login(db: AsyncSession, credentials: AuthRequestDto) -> str:
@@ -49,9 +63,9 @@ async def register_student(db: AsyncSession, data: RegisterStudentDto) -> User:
     db.add(user)
     db.add(student_profile)
     await db.commit()
-    await db.refresh(user)
     
-    return user
+    # Re-fetch with eager loading
+    return await get_user_with_profile(db, user.id)
 
 
 async def create_user(db: AsyncSession, email: str, password: str, name: str, role: Role, department: str = None) -> User:
@@ -82,9 +96,9 @@ async def create_user(db: AsyncSession, email: str, password: str, name: str, ro
         db.add(teacher_profile)
     
     await db.commit()
-    await db.refresh(user)
     
-    return user
+    # Re-fetch with eager loading
+    return await get_user_with_profile(db, user.id)
 
 
 async def update_user_profile(db: AsyncSession, user: User, email: str = None, avatar: str = None) -> User:
@@ -100,6 +114,6 @@ async def update_user_profile(db: AsyncSession, user: User, email: str = None, a
         user.email = email
     
     await db.commit()
-    await db.refresh(user)
     
-    return user
+    # Re-fetch with eager loading
+    return await get_user_with_profile(db, user.id)

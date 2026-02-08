@@ -69,6 +69,13 @@ async def get_leaderboard(
     limit: int = 50
 ) -> Dict[str, Any]:
     """Get classroom leaderboard."""
+    # Check classroom exists first
+    result = await db.execute(select(Classroom).where(Classroom.id == classroom_id))
+    classroom = result.scalar_one_or_none()
+    if not classroom:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found")
+    
+    # Then check membership
     if not await is_classroom_member(db, classroom_id, user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="INSUFFICIENT_PERMISSIONS")
     
