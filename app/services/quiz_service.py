@@ -15,8 +15,10 @@ MAX_PREREQUISITE_DEPTH = 50
 
 async def get_quizzes_by_module(db: AsyncSession, module_id: str) -> List[Quiz]:
     """Get all quizzes for a module."""
+    from sqlalchemy.orm import selectinload
     result = await db.execute(
         select(Quiz)
+        .options(selectinload(Quiz.created_by))
         .where(Quiz.module_id == module_id)
         .order_by(Quiz.created_at)
     )
@@ -25,7 +27,12 @@ async def get_quizzes_by_module(db: AsyncSession, module_id: str) -> List[Quiz]:
 
 async def get_quiz_by_id(db: AsyncSession, quiz_id: str) -> Quiz:
     """Get a quiz by ID."""
-    result = await db.execute(select(Quiz).where(Quiz.id == quiz_id))
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Quiz)
+        .options(selectinload(Quiz.created_by))
+        .where(Quiz.id == quiz_id)
+    )
     quiz = result.scalar_one_or_none()
     
     if not quiz:
@@ -90,6 +97,15 @@ async def create_quiz(
     await db.commit()
     await db.refresh(quiz)
     
+    # Load created_by relationship
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Quiz)
+        .options(selectinload(Quiz.created_by))
+        .where(Quiz.id == quiz.id)
+    )
+    quiz = result.scalar_one()
+    
     return quiz
 
 
@@ -103,7 +119,12 @@ async def update_quiz(
     user: User
 ) -> Quiz:
     """Update a quiz (teacher of course)."""
-    result = await db.execute(select(Quiz).where(Quiz.id == quiz_id))
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Quiz)
+        .options(selectinload(Quiz.created_by))
+        .where(Quiz.id == quiz_id)
+    )
     quiz = result.scalar_one_or_none()
     
     if not quiz:
