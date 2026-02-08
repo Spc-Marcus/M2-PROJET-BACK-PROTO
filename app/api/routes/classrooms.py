@@ -77,38 +77,6 @@ async def create_classroom(
     )
 
 
-@router.post("/join", response_model=ClassroomDto)
-async def join_classroom_by_code(
-    data: JoinClassroomDto,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Join classroom with code (student only)."""
-    classroom = await classroom_service.join_classroom_by_code(db, data.code, current_user)
-    
-    other_teachers = [t.teacher for t in classroom.teachers]
-    
-    return ClassroomDto(
-        id=classroom.id,
-        name=classroom.name,
-        level=classroom.level,
-        code=classroom.code,
-        responsibleProfessor={
-            "id": classroom.responsible_professor.id,
-            "email": classroom.responsible_professor.email,
-            "name": classroom.responsible_professor.name,
-            "role": classroom.responsible_professor.role
-        },
-        otherTeachers=[{
-            "id": t.id,
-            "email": t.email,
-            "name": t.name,
-            "role": t.role
-        } for t in other_teachers],
-        studentCount=len(classroom.students)
-    )
-
-
 @router.get("/{id}", response_model=ClassroomDto)
 async def get_classroom(
     id: str,

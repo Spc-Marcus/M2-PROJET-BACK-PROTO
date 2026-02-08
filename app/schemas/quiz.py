@@ -35,4 +35,5 @@ class QuizDto(BaseModel):
     question_count: int = Field(default=0, alias="questionCount")
     is_active: bool = Field(default=True, alias="isActive", validation_alias="is_active")
     is_locked: bool = Field(default=False, alias="isLocked")
+    created_by: Optional[UserSummaryDto] = Field(None, alias="createdBy", validation_alias="created_by")
     created_at: Optional[datetime] = Field(None, alias="createdAt", validation_alias="created_at")

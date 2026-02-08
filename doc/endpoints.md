@@ -228,7 +228,7 @@ Ce document recense l'ensemble des endpoints de l'API Duobingo.
 |---------|----------|-------------|-------|
 | `GET` | `/api/quizzes/{quizId}/questions` | Liste complète des questions (avec réponses) | Prof du cours |
 | `POST` | `/api/quizzes/{quizId}/questions` | Ajouter une question au quiz | Prof du cours |
-| `PUT` | `/api/questions/{questionId}` | Modifier une question complète | Prof du cours |
+| `PATCH` | `/api/questions/{questionId}` | Modifier une question complète | Prof du cours |
 | `DELETE` | `/api/questions/{questionId}` | Supprimer une question | Prof du cours |
 | `POST` | `/api/media` | Uploader une image (retourne l'URL) | Prof du cours |
 
@@ -246,7 +246,7 @@ Ce document recense l'ensemble des endpoints de l'API Duobingo.
 - **Response** : Question créée
 - **Accès** : Prof du cours
 
-#### PUT `/api/questions/{questionId}`
+#### PATCH `/api/questions/{questionId}`
 - **Path Params** : `questionId` (UUID)
 - **Body** : `QuestionCreateDto`
 - **Response** : Question modifiée

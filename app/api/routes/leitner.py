@@ -32,9 +32,7 @@ async def get_leitner_status(
     total = sum(distribution.values())
     weights = [50, 25, 15, 7, 3]
     boxes = [{
-        "boxLevel": i,
         "level": i,
-        "count": distribution[i],
         "questionCount": distribution[i],
         "percentage": round((distribution[i] / total * 100), 2) if total > 0 else 0,
         "selectionWeight": weights[i-1]
