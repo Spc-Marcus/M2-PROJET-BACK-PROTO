@@ -54,9 +54,9 @@ class QuestionResponseDto(BaseModel):
 
     id: str = Field(..., alias="id")
     type: str = Field(..., alias="type")
-    content_text: str = Field(..., alias="contentText", validation_alias="content_text")
+    content_text: str = Field(..., alias="contentText")
     explanation: Optional[str] = Field(None, alias="explanation")
-    media_id: Optional[str] = Field(None, alias="mediaId", validation_alias="media_id")
+    media_id: Optional[str] = Field(None, alias="mediaId")
     options: Optional[list[OptionDto]] = Field(None, alias="options")
     matching_pairs: Optional[list[MatchingPairDto]] = Field(None, alias="matchingPairs")
     image_zones: Optional[list[ImageZoneDto]] = Field(None, alias="imageZones")

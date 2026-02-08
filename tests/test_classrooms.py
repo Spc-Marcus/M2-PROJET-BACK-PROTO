@@ -462,7 +462,7 @@ def test_add_teacher_success(client, prof_responsible_token, classroom_id):
     response = client.post(
         f"/classrooms/{classroom_id}/teachers",
         headers={"Authorization": f"Bearer {prof_responsible_token}"},
-        json={"email": "new.teacher@univ-rennes.fr"}
+        json={"email": "add.teacher@univ-rennes.fr"}
     )
     
     assert response.status_code in [200, 201]

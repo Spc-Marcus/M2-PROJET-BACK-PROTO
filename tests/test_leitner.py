@@ -41,11 +41,12 @@ def test_get_leitner_status(client, student_token, classroom_id):
     assert "boxes" in data
     assert len(data["boxes"]) == 5  # 5 boxes
     
-    # Check each box has required fields
+    # Check each box has required fields (per documentation)
     for box in data["boxes"]:
-        assert "boxLevel" in box  # 1-5
-        assert "count" in box
+        assert "level" in box  # 1-5
+        assert "questionCount" in box
         assert "percentage" in box
+        assert "selectionWeight" in box
 
 
 def test_leitner_status_distribution(client, student_token, classroom_id):
