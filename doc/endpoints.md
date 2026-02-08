@@ -60,7 +60,8 @@ Ce document recense l'ensemble des endpoints de l'API Duobingo.
 | `DELETE` | `/api/classrooms/{id}/teachers/{teacherId}` | Retirer un enseignant du cours | Prof Responsable |
 | `POST` | `/api/classrooms/{id}/enroll` | Inscrire un étudiant (via email) | Prof Responsable |
 | `DELETE` | `/api/classrooms/{id}/students/{studentId}` | Retirer un étudiant du cours | Prof Responsable |
-| `POST` | `/api/classrooms/{id}/join` | Rejoindre un cours (via Code) | Étudiant |
+| `POST` | `/api/classrooms/join` | Rejoindre un cours (via Code seul) | Étudiant |
+| `POST` | `/api/classrooms/{id}/join` | Rejoindre un cours spécifique (via Code + ID) | Étudiant |
 | `POST` | `/api/classrooms/{id}/regenerate-code` | Régénérer le code d'accès | Prof Responsable |
 
 ### Détails
@@ -109,10 +110,17 @@ Ce document recense l'ensemble des endpoints de l'API Duobingo.
 - **Response** : 204 No Content
 - **Accès** : Prof Responsable uniquement
 
+#### POST `/api/classrooms/join`
+- **Body** : `{ "code": "ABC123" }`
+- **Response** : `ClassroomDto`
+- **Note** : Cherche le cours par code uniquement et inscrit l'étudiant
+- **Accès** : Étudiant
+
 #### POST `/api/classrooms/{id}/join`
 - **Path Params** : `id` (UUID)
 - **Body** : `{ "code": "ABC123" }`
 - **Response** : `ClassroomDto`
+- **Note** : Vérifie que le code correspond au cours spécifié avant d'inscrire
 - **Accès** : Étudiant
 
 #### DELETE `/api/classrooms/{id}`
